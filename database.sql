@@ -152,9 +152,33 @@ create policy "Can only view own subs data." on subscriptions
   for select using ((select auth.uid()) = user_id);
 
 /**
+* SONGS
+* Note: This table contains song data. Users should be able to view all songs but only update their own.
+*/
+create table songs (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references auth.users not null,
+  title text not null,
+  author text not null,
+  image_path text not null,
+  song_path text not null,
+  coin_address text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+alter table songs enable row level security;
+create policy "Can view all songs." on songs
+  for select using (true);
+create policy "Can insert own songs." on songs
+  for insert with check ((select auth.uid()) = user_id);
+create policy "Can update own songs." on songs
+  for update using ((select auth.uid()) = user_id);
+create policy "Can delete own songs." on songs
+  for delete using ((select auth.uid()) = user_id);
+
+/**
  * REALTIME SUBSCRIPTIONS
  * Only allow realtime listening on public tables.
  */
 drop publication if exists supabase_realtime;
 create publication supabase_realtime
-  for table products, prices;
+  for table products, prices, songs;

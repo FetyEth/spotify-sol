@@ -5,32 +5,39 @@ import { FieldValues, SubmitHandler, useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import uniqid from "uniqid";
 import { useRouter } from "next/navigation";
+import { useAccount } from "wagmi";
 
 import useUploadModal from "@/hooks/useUploadModal";
+import { useCreateCoin } from "@/hooks/useCreateCoin";
 import Modal from "./Modal";
 import Input from "./Input";
 import Button from "./Button";
 import { useUser } from "@/hooks/useUser";
 import { useSupabaseClient } from "@supabase/auth-helpers-react";
 
-
 const UploadModal = () => {
     const [isLoading, setIsLoading] = useState(false);
     const uploadModal = useUploadModal();
     const { user } = useUser();
+    const { address } = useAccount();
     const supabaseClient = useSupabaseClient();
     const router = useRouter();
+    const { create: createCoin, isLoading: isCreatingCoin } = useCreateCoin();
 
     const {
         register,
         handleSubmit,
-        reset
+        reset,
+        watch
     } = useForm<FieldValues>({
         defaultValues: {
             author: '',
             title: '',
             song: null,
             image: null,
+            createCoin: false,
+            coinSymbol: '',
+            initialPurchaseAmount: '0.01'
         }
     })
 
@@ -89,6 +96,26 @@ const UploadModal = () => {
                 return toast.error('Failed image upload.');
             }
 
+            let coinAddress;
+            if (values.createCoin && address) {
+                try {
+                    // Create coin for the song using metadata-aware creation
+                    const result = await createCoin({
+                        name: values.title,
+                        symbol: values.coinSymbol || values.title.slice(0, 5).toUpperCase(),
+                        description: `Fan token for ${values.title} by ${values.author}`,
+                        image: imageFile,
+                        payoutRecipient: address,
+                        initialPurchaseAmount: values.initialPurchaseAmount
+                    });
+                    coinAddress = result.address;
+                    toast.success('Coin created successfully!');
+                } catch (error) {
+                    console.error('Failed to create coin:', error);
+                    toast.error('Failed to create coin. Song will be uploaded without a coin.');
+                }
+            }
+
             const {
                 error: supabaseError
             } = await supabaseClient
@@ -98,7 +125,8 @@ const UploadModal = () => {
                     title: values.title,
                     author: values.author,
                     image_path: imageData.path,
-                    song_path: songData.path
+                    song_path: songData.path,
+                    coin_address: coinAddress
                 })
 
             if (supabaseError) {
@@ -118,10 +146,12 @@ const UploadModal = () => {
         }
     }
 
+    const createCoinEnabled = watch('createCoin');
+
     return (
         <Modal
             title="Add a song"
-            description="Upload an mp3 filen"
+            description="Upload an mp3 file and optionally create a fan token"
             isOpen={uploadModal.isOpen}
             onChange={onChange}
         >
@@ -142,9 +172,7 @@ const UploadModal = () => {
                     placeholder='Song author'
                 />
                 <div>
-                    <div
-                        className="pb-1"
-                    >
+                    <div className="pb-1">
                         Select a song file
                     </div>
                     <Input 
@@ -156,9 +184,7 @@ const UploadModal = () => {
                     />
                 </div>
                 <div>
-                    <div
-                        className="pb-1"
-                    >
+                    <div className="pb-1">
                         Select an image
                     </div>
                     <Input 
@@ -169,12 +195,51 @@ const UploadModal = () => {
                         {...register('image', { required: true })}
                     />
                 </div>
-                <Button disabled={isLoading} type="submit">
-                    Create
+                {address && (
+                    <div className="flex flex-col gap-y-2">
+                        <div className="flex items-center gap-x-2">
+                            <input
+                                type="checkbox"
+                                id="createCoin"
+                                {...register('createCoin')}
+                                className="h-4 w-4"
+                            />
+                            <label htmlFor="createCoin">
+                                Create fan token for this song
+                            </label>
+                        </div>
+                        {createCoinEnabled && (
+                            <>
+                                <Input 
+                                    id="coinSymbol"
+                                    disabled={isLoading}
+                                    {...register('coinSymbol')}
+                                    placeholder='Token symbol (optional)'
+                                />
+                                <Input 
+                                    id="initialPurchaseAmount"
+                                    type="number"
+                                    step="0.01"
+                                    disabled={isLoading}
+                                    {...register('initialPurchaseAmount')}
+                                    placeholder='Initial purchase amount in ETH'
+                                />
+                                <p className="text-sm text-neutral-400">
+                                    Initial purchase amount in ETH to seed liquidity pool. Default: 0.01 ETH
+                                </p>
+                            </>
+                        )}
+                    </div>
+                )}
+                <Button 
+                    disabled={isLoading || isCreatingCoin} 
+                    type="submit"
+                >
+                    Create{isLoading || isCreatingCoin ? 'ing...' : ''}
                 </Button>
             </form>
         </Modal>
-    )
+    );
 }
 
 export default UploadModal;

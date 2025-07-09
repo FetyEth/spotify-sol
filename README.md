@@ -1,4 +1,18 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+This is a [Next.js](https://nextjs.org/) Spotify project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+
+## Screenshots
+  ### Home
+  ![image](./public/images/spotify-home.png)
+    <hr>
+  ### Search
+  ![image](./public/images/spotify-search.png)
+    <hr>
+  ### Liked Songs 
+  ![image](./public/images/spotify-liked-songs.png)
+    <hr>
+  ### AI helper
+  ![image](./public/images/spotify-ai-helper.png)
+
 
 ## Getting Started
 
